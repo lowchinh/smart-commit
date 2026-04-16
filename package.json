@@ -1,0 +1,30 @@
+{
+  "name": "@lowchinh/smart-commit",
+  "version": "1.0.0",
+  "description": "Atomic git commits grouped by feature/layer — works with Claude Code, Copilot, Codex, Gemini",
+  "bin": {
+    "smart-commit": "./bin/cli.js"
+  },
+  "scripts": {
+    "postinstall": "node ./bin/setup.js --silent"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "adapters/",
+    "commands/",
+    "skills/",
+    ".claude-plugin/"
+  ],
+  "keywords": ["git", "commit", "ai", "claude", "copilot", "codex", "gemini"],
+  "author": "lowchinh",
+  "license": "MIT",
+  "homepage": "https://github.com/lowchinh/smart-commit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lowchinh/smart-commit.git"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
