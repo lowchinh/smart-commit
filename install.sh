@@ -20,7 +20,7 @@ usage() {
   echo "  Options:"
   echo "    --all      Install for all detected tools (default)"
   echo "    --claude   Claude Code only"
-  echo "    --copilot  GitHub Copilot only"
+  echo "    --copilot  GitHub Copilot (VS Code) only"
   echo "    --codex    OpenAI Codex CLI only"
   echo "    --gemini   Gemini CLI only"
   echo ""
@@ -51,6 +51,35 @@ echo -e "${BOLD}smart-commit installer${NC}"
 echo "────────────────────────────────"
 
 # ══════════════════════════════════════════════════════════════════════════════
+# SHELL COMMAND — installs `smart-commit` to PATH (all tools benefit)
+# ══════════════════════════════════════════════════════════════════════════════
+install_shell_command() {
+  step "Global shell command"
+
+  # Find writable bin dir in PATH
+  if [ -d "${HOME}/.local/bin" ]; then
+    BIN_DIR="${HOME}/.local/bin"
+  elif [ -d "/usr/local/bin" ] && [ -w "/usr/local/bin" ]; then
+    BIN_DIR="/usr/local/bin"
+  else
+    mkdir -p "${HOME}/.local/bin"
+    BIN_DIR="${HOME}/.local/bin"
+  fi
+
+  cp "${SCRIPT_DIR}/adapters/smart-commit.sh" "${BIN_DIR}/smart-commit"
+  chmod +x "${BIN_DIR}/smart-commit"
+
+  # Make sure BIN_DIR is in PATH
+  if [[ ":$PATH:" != *":${BIN_DIR}:"* ]]; then
+    warn "${BIN_DIR} is not in your PATH."
+    warn "Add this to your ~/.bashrc or ~/.zshrc:"
+    warn "  export PATH=\"\$PATH:${BIN_DIR}\""
+  fi
+
+  info "Installed: ${BIN_DIR}/smart-commit"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
 # CLAUDE CODE
 # ══════════════════════════════════════════════════════════════════════════════
 install_claude() {
@@ -76,7 +105,7 @@ install_claude() {
   cp -r "${SCRIPT_DIR}/.claude-plugin" "${DEST}/"
   cp -r "${SCRIPT_DIR}/commands"        "${DEST}/"
   cp -r "${SCRIPT_DIR}/skills"          "${DEST}/"
-  info "Plugin files copied to ${DEST}"
+  info "Plugin files → ${DEST}"
 
   # Register in marketplace.json
   if [ -f "${MARKETPLACE_JSON}" ]; then
@@ -116,54 +145,82 @@ else:
     print("  enabled in settings.json")
 PYEOF
 
-  info "Claude Code: done — run /reload-plugins inside Claude Code"
+  info "Claude Code → /reload-plugins, then use /smart-commit"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# GITHUB COPILOT
+# GITHUB COPILOT — adds instructions + VS Code keybinding Ctrl+Shift+Alt+C
 # ══════════════════════════════════════════════════════════════════════════════
 install_copilot() {
   step "GitHub Copilot"
 
-  # Detect VS Code settings path
   case "$(uname -s)" in
-    Darwin) VSCODE_SETTINGS="${HOME}/Library/Application Support/Code/User/settings.json" ;;
-    Linux)  VSCODE_SETTINGS="${HOME}/.config/Code/User/settings.json" ;;
-    MINGW*|CYGWIN*|MSYS*) VSCODE_SETTINGS="${APPDATA}/Code/User/settings.json" ;;
-    *) warn "Unsupported OS for Copilot install"; return ;;
+    Darwin) VSCODE_SETTINGS="${HOME}/Library/Application Support/Code/User/settings.json"
+            VSCODE_KEYBINDINGS="${HOME}/Library/Application Support/Code/User/keybindings.json" ;;
+    Linux)  VSCODE_SETTINGS="${HOME}/.config/Code/User/settings.json"
+            VSCODE_KEYBINDINGS="${HOME}/.config/Code/User/keybindings.json" ;;
+    MINGW*|CYGWIN*|MSYS*)
+            VSCODE_SETTINGS="${APPDATA}/Code/User/settings.json"
+            VSCODE_KEYBINDINGS="${APPDATA}/Code/User/keybindings.json" ;;
+    *) warn "Unsupported OS — skipping Copilot"; return ;;
   esac
 
   if ! command -v code &>/dev/null && [ ! -f "${VSCODE_SETTINGS}" ]; then
-    warn "VS Code not found — skipping Copilot install"
+    warn "VS Code not found — skipping Copilot"
     return
   fi
 
-  INSTRUCTION=$(cat "${SCRIPT_DIR}/adapters/copilot.md")
-
   mkdir -p "$(dirname "${VSCODE_SETTINGS}")"
 
+  # 1. Add Copilot Chat instructions
   python3 - <<PYEOF
 import json, os
-
 path = "${VSCODE_SETTINGS}"
 data = {}
 if os.path.exists(path):
     with open(path) as f:
         try: data = json.load(f)
         except: data = {}
-
 instructions = data.setdefault("github.copilot.chat.codeGeneration.instructions", [])
-
-# Check if smart-commit is already there
 if any("smart commit" in str(i).lower() or "smart-commit" in str(i).lower() for i in instructions):
-    print("  smart-commit already in Copilot instructions")
+    print("  Copilot instructions already set")
 else:
     instructions.append({"text": open("${SCRIPT_DIR}/adapters/copilot.md").read()})
     with open(path, "w") as f: json.dump(data, f, indent=2, ensure_ascii=False); f.write("\n")
-    print("  added to VS Code Copilot instructions")
+    print("  added smart-commit to Copilot instructions")
 PYEOF
 
-  info "GitHub Copilot: done — say 'smart commit' in Copilot Chat"
+  # 2. Add VS Code keybinding: Ctrl+Shift+Alt+C → open Copilot Chat with "smart commit"
+  python3 - <<PYEOF
+import json, os
+path = "${VSCODE_KEYBINDINGS}"
+bindings = []
+if os.path.exists(path):
+    with open(path) as f:
+        content = f.read().strip()
+        if content:
+            # Strip JS comments before parsing
+            import re
+            content = re.sub(r'//[^\n]*', '', content)
+            try: bindings = json.loads(content)
+            except: bindings = []
+
+KEY = "ctrl+shift+alt+c"
+CMD = "workbench.action.chat.open"
+
+if any(b.get("key") == KEY and b.get("command") == CMD for b in bindings):
+    print("  keybinding already set")
+else:
+    bindings.append({
+        "key": KEY,
+        "command": CMD,
+        "args": {"query": "smart commit"}
+    })
+    with open(path, "w") as f: json.dump(bindings, f, indent=2, ensure_ascii=False); f.write("\n")
+    print("  added keybinding Ctrl+Shift+Alt+C → smart commit")
+PYEOF
+
+  info "Copilot → Ctrl+Shift+Alt+C in VS Code (or say 'smart commit' in Chat)"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -185,16 +242,11 @@ install_codex() {
   if [ -f "${INSTRUCTIONS_FILE}" ] && grep -q "Smart Commit" "${INSTRUCTIONS_FILE}"; then
     warn "smart-commit already in ${INSTRUCTIONS_FILE}"
   else
-    {
-      echo ""
-      echo "---"
-      echo ""
-      cat "${SCRIPT_DIR}/adapters/codex.md"
-    } >> "${INSTRUCTIONS_FILE}"
+    { echo ""; echo "---"; echo ""; cat "${SCRIPT_DIR}/adapters/codex.md"; } >> "${INSTRUCTIONS_FILE}"
     info "Appended to ${INSTRUCTIONS_FILE}"
   fi
 
-  info "Codex CLI: done — say 'smart commit' to Codex"
+  info "Codex CLI → type 'smart commit' or run: smart-commit"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -216,31 +268,28 @@ install_gemini() {
   if [ -f "${GEMINI_FILE}" ] && grep -q "Smart Commit" "${GEMINI_FILE}"; then
     warn "smart-commit already in ${GEMINI_FILE}"
   else
-    {
-      echo ""
-      echo "---"
-      echo ""
-      cat "${SCRIPT_DIR}/adapters/gemini.md"
-    } >> "${GEMINI_FILE}"
+    { echo ""; echo "---"; echo ""; cat "${SCRIPT_DIR}/adapters/gemini.md"; } >> "${GEMINI_FILE}"
     info "Appended to ${GEMINI_FILE}"
   fi
 
-  info "Gemini CLI: done — say 'smart commit' to Gemini"
+  info "Gemini CLI → type 'smart commit' or run: smart-commit"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Run selected installs
+# Run
 # ══════════════════════════════════════════════════════════════════════════════
+install_shell_command   # always install the shell command
+
 $OPT_CLAUDE  && install_claude
 $OPT_COPILOT && install_copilot
 $OPT_CODEX   && install_codex
 $OPT_GEMINI  && install_gemini
 
 echo ""
-echo -e "${BOLD}Done!${NC}"
+echo -e "${BOLD}All done!${NC}"
 echo ""
-echo "  Claude Code  →  /reload-plugins  then  /smart-commit"
-echo "  Copilot      →  say 'smart commit' in Copilot Chat"
-echo "  Codex        →  say 'smart commit' to Codex"
-echo "  Gemini       →  say 'smart commit' to Gemini"
+echo "  Terminal (any tool)   →  smart-commit"
+echo "  Claude Code           →  /reload-plugins, then /smart-commit"
+echo "  VS Code Copilot       →  Ctrl+Shift+Alt+C"
+echo "  Codex / Gemini        →  smart-commit  or  say 'smart commit'"
 echo ""

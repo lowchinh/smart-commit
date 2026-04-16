@@ -1,0 +1,12 @@
+// Add this to your VS Code keybindings.json
+// Open with: Ctrl+Shift+P → "Open Keyboard Shortcuts (JSON)"
+//
+// Trigger: Ctrl+Shift+Alt+C  (or change to any key you prefer)
+// Opens Copilot Chat and pre-fills "smart commit"
+[
+  {
+    "key": "ctrl+shift+alt+c",
+    "command": "workbench.action.chat.open",
+    "args": { "query": "smart commit" }
+  }
+]
