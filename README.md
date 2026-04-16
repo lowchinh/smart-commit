@@ -1,6 +1,6 @@
 # smart-commit
 
-A Claude Code plugin that automatically stages and commits pending changes as **atomic commits grouped by architectural layer or feature**.
+Automatically stages and commits pending changes as **atomic commits grouped by architectural layer or feature** — works with Claude Code, GitHub Copilot, OpenAI Codex CLI, and Gemini CLI.
 
 - Detects your project's existing commit message convention from git history
 - Skips build artifacts, secrets, and lock files automatically
@@ -14,26 +14,31 @@ cd smart-commit
 bash install.sh
 ```
 
-Then inside Claude Code:
+Installs for **all detected tools** automatically. To target a specific tool:
 
-```
-/reload-plugins
-```
-
-## Usage
-
-In any git repository, type:
-
-```
-/smart-commit
+```bash
+bash install.sh --claude    # Claude Code only
+bash install.sh --copilot   # GitHub Copilot only
+bash install.sh --codex     # OpenAI Codex CLI only
+bash install.sh --gemini    # Gemini CLI only
+bash install.sh --all       # all tools (default)
 ```
 
-Or say: `"commit based on features"`, `"commit by layer"`, `"atomic commits"`
+## Usage by tool
+
+| Tool | How to trigger |
+|---|---|
+| **Claude Code** | `/smart-commit` or say "commit by layer" |
+| **GitHub Copilot** | say "smart commit" in Copilot Chat |
+| **OpenAI Codex CLI** | say "smart commit" |
+| **Gemini CLI** | say "smart commit" |
+
+> After installing for Claude Code, run `/reload-plugins` inside Claude Code.
 
 ## What it does
 
-1. Inspects `git log`, `git status`, and `git diff` in parallel
-2. Skips files that should never be committed (`.env*`, `dist/`, `.next/`, `*.tsbuildinfo`, etc.)
+1. Inspects `git log`, `git status`, and `git diff`
+2. Skips files that should never be committed (`.env*`, `dist/`, `.next/`, `*.tsbuildinfo`, lock files, etc.)
 3. Groups remaining files by layer: Config → Docs → DB → Lib → API → UI → Tests
 4. Detects your commit style (conventional, ticket-prefixed, imperative)
 5. Commits each group with an appropriate message
@@ -53,12 +58,35 @@ Or say: `"commit based on features"`, `"commit by layer"`, `"atomic commits"`
 
 ≤ 3 files spanning groups → one commit. > 3 files → split by layer.
 
-## Uninstall
+## Repo structure
 
-Remove the plugin directory and entry from `settings.json`:
-
-```bash
-rm -rf ~/.claude/plugins/marketplaces/claude-plugins-official/plugins/smart-commit
+```
+smart-commit/
+├── .claude-plugin/            # Claude Code plugin metadata
+├── commands/
+│   └── smart-commit.md        # /smart-commit slash command
+├── skills/
+│   └── smart-commit/
+│       └── SKILL.md           # Claude Code context-aware skill
+├── adapters/
+│   ├── copilot.md             # GitHub Copilot instructions
+│   ├── codex.md               # OpenAI Codex CLI instructions
+│   └── gemini.md              # Gemini CLI instructions
+├── install.sh                 # Universal installer
+└── SKILL.md                   # Original skill definition
 ```
 
-Then remove `"smart-commit@claude-plugins-official"` from `~/.claude/settings.json` and run `/reload-plugins`.
+## Uninstall
+
+**Claude Code:**
+```bash
+rm -rf ~/.claude/plugins/marketplaces/claude-plugins-official/plugins/smart-commit
+# Remove "smart-commit@claude-plugins-official" from ~/.claude/settings.json
+# Run /reload-plugins
+```
+
+**Copilot:** Remove the smart-commit entry from `github.copilot.chat.codeGeneration.instructions` in VS Code settings.
+
+**Codex:** Remove the smart-commit section from `~/.codex/instructions.md`.
+
+**Gemini:** Remove the smart-commit section from `~/.gemini/GEMINI.md`.
