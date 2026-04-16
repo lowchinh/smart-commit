@@ -1,0 +1,9 @@
+{
+  "name": "smart-commit",
+  "description": "Atomic git commits grouped by feature/layer — detects commit style from history, skips build artifacts, never uses git add -A",
+  "author": {
+    "name": "lowchinh",
+    "homepage": "https://github.com/lowchinh/smart-commit"
+  },
+  "category": "productivity"
+}
